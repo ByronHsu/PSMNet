@@ -18,6 +18,7 @@ def convbn_3d(in_planes, out_planes, kernel_size, stride, pad):
     return nn.Sequential(nn.Conv3d(in_planes, out_planes, kernel_size=kernel_size, padding=pad, stride=stride,bias=False),
                          nn.BatchNorm3d(out_planes))
 
+
 class BasicBlock(nn.Module):
     expansion = 1
     def __init__(self, inplanes, planes, stride, downsample, pad, dilation):
@@ -64,6 +65,10 @@ class disparityregression(nn.Module):
         return out
 
 class feature_extraction(nn.Module):
+    """
+    def convbn(in_planes, out_planes, kernel_size, stride, pad, dilation):
+    def convbn_3d(in_planes, out_planes, kernel_size, stride, pad):
+    """
     def __init__(self):
         super(feature_extraction, self).__init__()
         self.inplanes = 32

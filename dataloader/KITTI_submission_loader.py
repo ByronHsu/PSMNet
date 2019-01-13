@@ -26,4 +26,5 @@ def dataloader(filepath):
   left_test  = [filepath+left_fold+img for img in image]
   right_test = [filepath+right_fold+img for img in image]
 
+
   return left_test, right_test
