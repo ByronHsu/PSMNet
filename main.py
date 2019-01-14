@@ -13,8 +13,8 @@ import torch.nn.functional as F
 import numpy as np
 import time
 import math
-from dataloader import listflowfile as lt
-from dataloader import SecenFlowLoader as DA
+from dataloader import uslistfile as lt
+from dataloader import usloader as DA
 from models import *
 
 parser = argparse.ArgumentParser(description='PSMNet')
@@ -41,16 +41,11 @@ torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
-all_left_img, all_right_img, all_left_disp, test_left_img, test_right_img, test_left_disp = lt.dataloader(args.datapath)
+all_left_img, all_right_img = lt.dataloader(args.datapath)
 
 TrainImgLoader = torch.utils.data.DataLoader(
-         DA.myImageFloder(all_left_img,all_right_img,all_left_disp, True), 
+         DA.myImageFloder(all_left_img, all_right_img, True), 
          batch_size= 12, shuffle= True, num_workers= 8, drop_last=False)
-
-TestImgLoader = torch.utils.data.DataLoader(
-         DA.myImageFloder(test_left_img,test_right_img,test_left_disp, False), 
-         batch_size= 8, shuffle= False, num_workers= 4, drop_last=False)
-
 
 if args.model == 'stackhourglass':
     model = stackhourglass(args.maxdisp)
@@ -78,12 +73,11 @@ def train(imgL,imgR, disp_L):
         disp_L = Variable(torch.FloatTensor(disp_L))
 
         if args.cuda:
-            imgL, imgR, disp_true = imgL.cuda(), imgR.cuda(), disp_L.cuda()
+            imgL, imgR = imgL.cuda(), imgR.cuda()
 
-       #---------
         mask = disp_true < args.maxdisp
         mask.detach_()
-        #----
+
         optimizer.zero_grad()
         
         if args.model == 'stackhourglass':
@@ -102,29 +96,6 @@ def train(imgL,imgR, disp_L):
 
         return loss.data[0]
 
-def test(imgL,imgR,disp_true):
-        model.eval()
-        imgL   = Variable(torch.FloatTensor(imgL))
-        imgR   = Variable(torch.FloatTensor(imgR))   
-        if args.cuda:
-            imgL, imgR = imgL.cuda(), imgR.cuda()
-
-        #---------
-        mask = disp_true < 192
-        #----
-
-        with torch.no_grad():
-            output3 = model(imgL,imgR)
-
-        output = torch.squeeze(output3.data.cpu(),1)[:,4:,:]
-
-        if len(disp_true[mask])==0:
-           loss = 0
-        else:
-           loss = torch.mean(torch.abs(output[mask]-disp_true[mask]))  # end-point-error
-
-        return loss
-
 def adjust_learning_rate(optimizer, epoch):
     lr = 0.001
     print(lr)
@@ -133,7 +104,6 @@ def adjust_learning_rate(optimizer, epoch):
 
 
 def main():
-
 	start_full_time = time.time()
 	for epoch in range(1, args.epochs+1):
 	   print('This is %d-th epoch' %(epoch))
@@ -141,10 +111,9 @@ def main():
 	   adjust_learning_rate(optimizer,epoch)
 
 	   ## training ##
-	   for batch_idx, (imgL_crop, imgR_crop, disp_crop_L) in enumerate(TrainImgLoader):
+	   for batch_idx, (imgL, imgR) in enumerate(TrainImgLoader):
 	     start_time = time.time()
-
-	     loss = train(imgL_crop,imgR_crop, disp_crop_L)
+	     loss = train(imgL, imgR)
 	     print('Iter %d training loss = %.3f , time = %.2f' %(batch_idx, loss, time.time() - start_time))
 	     total_train_loss += loss
 	   print('epoch %d total training loss = %.3f' %(epoch, total_train_loss/len(TrainImgLoader)))
@@ -158,21 +127,6 @@ def main():
 		}, savefilename)
 
 	print('full training time = %.2f HR' %((time.time() - start_full_time)/3600))
-
-	#------------- TEST ------------------------------------------------------------
-	total_test_loss = 0
-	for batch_idx, (imgL, imgR, disp_L) in enumerate(TestImgLoader):
-	       test_loss = test(imgL,imgR, disp_L)
-	       print('Iter %d test loss = %.3f' %(batch_idx, test_loss))
-	       total_test_loss += test_loss
-
-	print('total test loss = %.3f' %(total_test_loss/len(TestImgLoader)))
-	#----------------------------------------------------------------------------------
-	#SAVE test information
-	savefilename = args.savemodel+'testinformation.tar'
-	torch.save({
-		    'test_loss': total_test_loss/len(TestImgLoader),
-		}, savefilename)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,1 @@
+python3 submission.py --model stackhourglass --datapath kitti/ --loadmodel pretrained_model_KITTI2015.tar

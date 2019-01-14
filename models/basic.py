@@ -86,3 +86,9 @@ class PSMNet(nn.Module):
         pred = disparityregression(self.maxdisp)(pred)
 
         return pred
+    
+    def forward_modified(self, left, right):
+
+        left_disp = self.forward(left, right)
+        right_disp_flip = self.forward(right, left_flip)
+
